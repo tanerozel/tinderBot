@@ -1,8 +1,68 @@
-import { Component } from '@angular/core';
+import { Component, Inject } from '@angular/core';
 
 @Component({
   selector: 'app-home',
   templateUrl: './home.component.html',
 })
+
+
 export class HomeComponent {
+  bots = BOTS;
+  Baseurl: string;
+  constructor( @Inject('BASE_URL') baseUrl: string) {
+    this.Baseurl = baseUrl;
+ 
+  }
+
+  addBot() {
+    this.bots.push(this.bots[0])
+  }
+
+  
+  terminateBot(bot) {
+    bot.status = false;
+  }
+
+  runBot(bot) {
+    fetch(this.Baseurl + "api/bot/run", {
+      headers: {
+        'X-Auth-Token': bot.token
+      }
+    }).then((response) => {
+      response.json().then((result) => {
+
+        if (result.ReasonPhrase) {
+          alert(result.ReasonPhrase)
+          bot.status = false;
+        }
+
+        bot.totaluser = bot.totaluser + result.data.results.length;
+        if (bot.status) {
+          this.runBot(bot);
+        }
+       
+      });
+
+    })
+  } 
+
 }
+
+interface Bot {
+  name: string;
+  location: string;
+  status: boolean;
+  totaluser: number;
+  token: string
+}
+
+const BOTS: Bot[] = [
+  {
+    name: 'İstanbul',
+    location: 'f/f3/Flag_of_Russia.svg',
+    status: false,
+    totaluser: 0,
+    token: "e4415083-e579-4f90-8a19-ef822b26c562"
+  }
+
+];

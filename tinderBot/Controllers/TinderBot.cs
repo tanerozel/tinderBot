@@ -19,22 +19,21 @@ namespace tinderBot
     public class TinderBot : IDisposable
     {
         private HttpClient _httpClient;
-        
-        public TinderBot()
-        {
-        }
 
-        public TinderBot(string apiBaseUrl, string tinderToken)
+
+        public string TinderToken;
+
+        public TinderBot(string Token)
         {
             var client = new HttpClient();
-            client.BaseAddress = new Uri(apiBaseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));         
-            client.DefaultRequestHeaders.Add("x-auth-token", tinderToken.ToString());     
+            client.BaseAddress = new Uri("https://api.gotinder.com/v2/");
+                client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            client.DefaultRequestHeaders.Add("x-auth-token", Token);
             _httpClient = client;
         }
 
-        public async Task <JObject> GetTindePersone()
+        public async Task <string> GetTindePersone()
         {
            
             using (_httpClient)
@@ -42,26 +41,21 @@ namespace tinderBot
                 var serializerSettings = JsonHelper.GetDefaultJsonSerializerSettings();
                 var jsonSerializer = JsonSerializer.Create(serializerSettings);
 
-                var response = await _httpClient.GetAsync("/recs/core");                    
+                var response = await _httpClient.GetAsync("recs/core");                    
                  
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    if (response.StatusCode == HttpStatusCode.Unauthorized)
-                        throw new Exception("Login Olunamadı");
-
-                    var errorData = await response.Content.ReadAsStringAsync();
-
-                   // throw new Exception("RecordFind method gets '" + response.StatusCode + "' error.\nTenantId: " +  + "\nRequest: " + postBody + "\nResponse: " + errorData);
+                    return response.ToJsonString() ;
                 }
 
                 var data = await response.Content.ReadAsStringAsync();
                 var records = JObject.Parse(data);
 
-                var result = (JArray)records["results"];
+                var result = (JArray)records["data"]["results"];
                 Isele(result);
 
-                return (JObject)records;
+                return data;
 
             }
           
@@ -71,17 +65,15 @@ namespace tinderBot
         {
             foreach (JObject person in records)
             {
-
                 PersoneProcces(person);
-
             }
 
         }
 
         public void PersoneProcces(JObject person)
         {
-            var personImage = (JArray)person["photos"];
-            var personId = (string)person["_id"];
+            var personImage = (JArray)person["user"]["photos"];
+            var personId = (string)person["user"]["_id"];
             SavePersoneImage(personImage, personId);
         }
         public static void SavePersoneImage(JArray images,string id)
@@ -93,6 +85,20 @@ namespace tinderBot
                 if (!Directory.Exists(filePath))
                 {
                     Directory.CreateDirectory(filePath);
+
+                    using (StreamWriter writer = File.CreateText(filePath + "version.txt"))
+                    {
+                        writer.WriteLine("1"+ DateTime.Now);
+
+                    }
+
+                }
+                else
+                {
+         
+
+                    string text = System.IO.File.ReadAllText(filePath+"version.txt");
+
                 }
             
 
@@ -107,9 +113,54 @@ namespace tinderBot
             client.DownloadFileAsync(uri, FileName);
            
         }
-        public void Dispose()
+
+       public async Task<string> test()
         {
 
+
+            //if (!Directory.Exists(filePath))
+            //{
+            //    Directory.CreateDirectory(filePath);
+
+            //    using (StreamWriter writer = File.CreateText(filePath + "version.txt"))
+            //    {
+            //        writer.WriteLine("1-" + DateTime.Now);
+            //    }
+
+            //}
+            //else
+            //{
+            //    string text = System.IO.File.ReadAllText(filePath + "version.txt");
+
+            //}
+
+            var arr = new JArray();
+            string[] dirs = Directory.GetDirectories(@"c:\temp2");
+   
+            foreach (string dira in dirs)
+            {
+              //  string id = "5a60d02f39aa4bc32a05f5da";
+                string filePath = dira;
+
+                DirectoryInfo dir = new DirectoryInfo(filePath);
+                FileInfo[] imageFiles = dir.GetFiles("*.jpg");
+
+                foreach (FileInfo f in imageFiles)
+                {
+                    var file = new JObject();
+                    file["Name"] = f.Name;
+                    arr.Add(file);
+                }
+            }    
+
+            return arr.ToString();
+
+
+        }
+
+        public void Dispose()
+        {
+            _httpClient.Dispose();
         }
     }
 }

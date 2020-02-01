@@ -7,13 +7,25 @@ import { HttpClient } from '@angular/common/http';
 })
 export class FetchDataComponent {
   public forecasts: WeatherForecast[];
-
+  public Baseurl: string;
   constructor(http: HttpClient, @Inject('BASE_URL') baseUrl: string) {
-    http.get<WeatherForecast[]>(baseUrl + 'weatherforecast').subscribe(result => {
-      this.forecasts = result;
-    }, error => console.error(error));
+    this.Baseurl = baseUrl;
+    this.req();
   }
+  req() {
+    fetch(this.Baseurl + "api/bot/run", {
+      headers: {
+        'X-Auth-Token': "e4415083-e579-4f90-8a19-ef822b26c562"
+      }}).then((response) => {
+      response.json().then((result) => {
+        this.req();
+      });
+
+    })
+  }
+
 }
+ 
 
 interface WeatherForecast {
   date: string;
