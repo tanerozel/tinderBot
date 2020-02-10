@@ -37,11 +37,8 @@ namespace tinderBot
            
             using (_httpClient)
             {
-               var serializerSettings = JsonHelper.GetDefaultJsonSerializerSettings();
-               var jsonSerializer = JsonSerializer.Create(serializerSettings);
-
-                var response = await _httpClient.GetAsync("recs/core");                    
-                 
+           
+                var response = await _httpClient.GetAsync("recs/core");   
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -58,6 +55,30 @@ namespace tinderBot
 
             }
           
+        }
+
+        public async Task<string> GetTindeProfile()
+        {
+
+            using (_httpClient)
+            {
+                var serializerSettings = JsonHelper.GetDefaultJsonSerializerSettings();
+                var jsonSerializer = JsonSerializer.Create(serializerSettings);
+
+                var response = await _httpClient.GetAsync("profile?include=account,travel,tutorials,user&locale");
+
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return response.ToJsonString();
+                }
+
+                var data = await response.Content.ReadAsStringAsync();
+          
+                return data;
+
+            }
+
         }
 
         public void Isele(JArray records)
