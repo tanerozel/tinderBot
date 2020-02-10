@@ -1,16 +1,11 @@
-﻿using Hangfire;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
-using Microsoft.Azure.ServiceBus;
+﻿using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
 using tinderBot.Helpers;
 
@@ -19,18 +14,22 @@ namespace tinderBot
     public class TinderBot : IDisposable
     {
         private HttpClient _httpClient;
-
-
+        private MemoryCacheHelper _cacheHelper;
         public string TinderToken;
+       
 
-        public TinderBot(string Token)
+        public TinderBot(string Token, IMemoryCache memoryCache)
         {
+
             var client = new HttpClient();
             client.BaseAddress = new Uri("https://api.gotinder.com/v2/");
                 client.DefaultRequestHeaders.Accept.Clear();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             client.DefaultRequestHeaders.Add("x-auth-token", Token);
             _httpClient = client;
+
+            if (memoryCache != null)
+                _cacheHelper = new MemoryCacheHelper(memoryCache);
         }
 
         public async Task <string> GetTindePersone()
@@ -38,8 +37,8 @@ namespace tinderBot
            
             using (_httpClient)
             {
-                var serializerSettings = JsonHelper.GetDefaultJsonSerializerSettings();
-                var jsonSerializer = JsonSerializer.Create(serializerSettings);
+               var serializerSettings = JsonHelper.GetDefaultJsonSerializerSettings();
+               var jsonSerializer = JsonSerializer.Create(serializerSettings);
 
                 var response = await _httpClient.GetAsync("recs/core");                    
                  
@@ -65,6 +64,7 @@ namespace tinderBot
         {
             foreach (JObject person in records)
             {
+
                 PersoneProcces(person);
             }
 
@@ -74,7 +74,19 @@ namespace tinderBot
         {
             var personImage = (JArray)person["user"]["photos"];
             var personId = (string)person["user"]["_id"];
-            SavePersoneImage(personImage, personId);
+           // Like(personId);
+             var personCache  =  _cacheHelper.Get<JObject>(personId.ToString());
+            if (personCache.IsNullOrEmpty())
+            {
+                _cacheHelper.Set("personId", person);
+                SavePersoneImage(personImage, personId);
+            }
+            else
+            {
+                SavePersoneImage(personImage, personId);
+            }
+
+          
         }
         public static void SavePersoneImage(JArray images,string id)
         {
@@ -114,7 +126,11 @@ namespace tinderBot
            
         }
 
-       public async Task<string> test()
+        public async Task Like(string userId)
+        {
+           await _httpClient.GetAsync("recs/core");
+        }
+        public async Task<string> test()
         {
 
 
@@ -162,5 +178,59 @@ namespace tinderBot
         {
             _httpClient.Dispose();
         }
+
+        private Task<TResponse> Get<TResponse>(string requestUri)
+        {
+            return Send<TResponse>(new HttpRequestMessage(HttpMethod.Get, requestUri));
+        }
+
+        private Task<TResponse> Post<TResponse>(string requestUri)
+        {
+            return Send<TResponse>(new HttpRequestMessage(HttpMethod.Post, requestUri));
+        }
+
+        private Task<TResponse> Post<TRequest, TResponse>(string requestUri, TRequest payload)
+        {
+            var msg = new HttpRequestMessage(HttpMethod.Post, requestUri);
+            var jsonPayload = System.Text.Json.JsonSerializer.Serialize(payload);
+            msg.Content = new StringContent(jsonPayload);
+            return Send<TResponse>(msg);
+        }
+
+        private Task<TResponse> Delete<TResponse>(string requestUri)
+        {
+            return Send<TResponse>(new HttpRequestMessage(HttpMethod.Delete, requestUri));
+        }
+
+        private async Task<TResponse> Send<TResponse>(HttpRequestMessage msg)
+        {
+            var res = await _httpClient.SendAsync(msg);
+            var json = await res.Content.ReadAsStringAsync();
+
+            if (!res.IsSuccessStatusCode)
+            {
+                if (res.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    //throw new TinderAuthenticationException("Invalid or expired token");
+                }
+
+               // throw new TinderException(json);
+            }
+
+            return Deserialize<TResponse>(json);
+        }
+
+        private T Deserialize<T>(string json)
+        {
+            try
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<T>(json);
+            }
+            catch (Exception e)
+            {
+                throw new Exception($"Couldn't deserialize response: ${json}", e);
+            }
+        }
+
     }
 }

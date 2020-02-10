@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.IO;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace tinderBot.Controllers
 {
@@ -17,11 +18,19 @@ namespace tinderBot.Controllers
     public class TinderBotController : BaseController
     {
 
+        private IMemoryCache _memoryCache;
+
+        public TinderBotController(IMemoryCache memoryCache)
+        {
+            _memoryCache = memoryCache;
+
+        }
+
         [Route("run"), HttpGet]
         public async Task<IActionResult> Run()
         {
 
-            var tinderClient = new TinderBot(TinderToken);
+            var tinderClient = new TinderBot(TinderToken, _memoryCache);
 
             var data = await tinderClient.GetTindePersone();
 
@@ -34,7 +43,7 @@ namespace tinderBot.Controllers
         public async Task<IActionResult> Test()
         {
 
-            var tinderClient = new TinderBot("asdf");
+            var tinderClient = new TinderBot("asdf", _memoryCache);
             var data =   await  tinderClient.test();
 
             return Ok(data);

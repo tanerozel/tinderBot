@@ -15,7 +15,7 @@ export class HomeComponent {
   }
 
   addBot() {
-    this.bots.push(this.bots[0])
+    this.bots.push(Object.assign({}, this.bots[0]));
   }
 
   
@@ -32,13 +32,19 @@ export class HomeComponent {
       response.json().then((result) => {
 
         if (result.ReasonPhrase) {
+       
           alert(result.ReasonPhrase)
           bot.status = false;
         }
 
         bot.totaluser = bot.totaluser + result.data.results.length;
         if (bot.status) {
-          this.runBot(bot);
+          var that = this;
+          setTimeout(function () {
+            that.runBot(bot);
+
+          }, 5000)
+         
         }
        
       });
@@ -58,7 +64,7 @@ interface Bot {
 
 const BOTS: Bot[] = [
   {
-    name: 'İstanbul',
+    name: 'İstanbul Esenler',
     location: 'f/f3/Flag_of_Russia.svg',
     status: false,
     totaluser: 0,
